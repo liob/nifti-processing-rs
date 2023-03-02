@@ -1,0 +1,6 @@
+/target
+/sample_data
+*.nii.gz
+*.lock
+___*
+/.vscode

@@ -1,0 +1,22 @@
+[package]
+name = "nifti_processing"
+version = "0.1.0"
+edition = "2021"
+description = "nibabel like processing functions for Nifti-rs"
+authors = ["Hinrich Winther <hbwinther@gmail.com>"]
+license = "MIT OR Apache-2.0"
+
+
+[dependencies]
+nifti      = { version = "0.15.0", features = ["nalgebra_affine"] }
+nalgebra   = "0.31"
+ndarray    = "0.15"
+itertools  = "0.10"
+num-traits = "0.2"
+simba      = { version = "0.7.1", default-features = false }
+
+[dev-dependencies]
+# tqdm
+kdam       = "0.3.0"
+# command line parameters
+clap       = { version = "4.0", features = ["derive"] }
