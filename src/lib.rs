@@ -1,9 +1,9 @@
+//! This library is an extension of the NIFTI-rs library, adding resampling support.
+//! This library is closely modeled after the NiBabel processing module, hence the name.
+
 use itertools::Itertools;
 use nalgebra as na;
-use nalgebra::{
-    ClosedAdd, ClosedMul, Const, Dynamic, Matrix, Matrix3, Matrix4, RealField, Scalar, VecStorage,
-    Vector3,
-};
+use nalgebra::{ClosedAdd, ClosedMul, Matrix3, Matrix4, MatrixXx3, RealField, Scalar, Vector3};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
 use simba::scalar::{SubsetOf, SupersetOf};
@@ -11,10 +11,10 @@ use std::fmt::Display;
 
 pub mod sampler;
 
-pub type Matrix3N<T> = Matrix<T, Dynamic, Const<3>, VecStorage<T, Dynamic, Const<3>>>;
-
+/// Corners could be calculated, e.g. using itertools. As we only need to cover the 3D
+/// usecase, we simply do it "manually".
 #[rustfmt::skip] // do not mangle manual matrix format
-fn get_corners<U>(input_shape: &Vector3<u16>) -> Matrix3N<U>
+fn get_corners<U>(input_shape: &Vector3<u16>) -> MatrixXx3<U>
 where
     U: Num + Scalar + Copy,
     u16: Into<U>,
@@ -25,7 +25,7 @@ where
     let zero = U::zero;
     let one = U::one;
 
-    Matrix3N::<U>::from_row_slice(&[
+    MatrixXx3::<U>::from_row_slice(&[
         zero(),               zero(),               zero(),
         zero(),               zero(),               is[2].into() - one(),
         zero(),               is[1].into() - one(), zero(),
@@ -37,7 +37,8 @@ where
     ])
 }
 
-fn apply_affine<T>(affine: &Matrix4<T>, pts: &Matrix3N<T>) -> Matrix3N<T>
+/// Transform the point matrix by applying the affine transform + translation.
+fn apply_affine<T>(affine: &Matrix4<T>, pts: &MatrixXx3<T>) -> MatrixXx3<T>
 where
     T: Num + Scalar + ClosedAdd + ClosedMul + Copy,
 {
@@ -51,6 +52,22 @@ where
     r
 }
 
+/// output-aligned shape, affine for input implied by `in_shape` & `in_affine`
+///
+/// The input (voxel) space, and the affine mapping to output space, are given
+/// in `in_shape` & `in_affine`.
+///
+/// The output space is implied by the affine, we don't need to know what that
+/// is, we just return something with the same (implied) output space.
+///
+/// Our job is to work out another voxel space where the voxel array axes and
+/// the output axes are aligned (top left 3 x 3 of affine is diagonal with all
+/// positive entries) and which contains all the voxels of the implied input
+/// image at their correct output space positions, once resampled into the
+/// output voxel space.
+///
+/// (from the nibabel documentation)
+///
 fn vox2out_vox<T>(
     in_shape: &Vector3<u16>,
     in_affine: &Matrix4<T>,
@@ -60,10 +77,10 @@ where
     T: Num + AsPrimitive<T> + SupersetOf<u16> + Scalar + RealField + Copy + Display,
     u16: Into<T>,
 {
-    let in_corners: Matrix3N<T> = get_corners(in_shape);
+    let in_corners: MatrixXx3<T> = get_corners(in_shape);
     //println!("in_corners: {in_corners}");
 
-    let out_corners: Matrix3N<T> = apply_affine(in_affine, &in_corners);
+    let out_corners: MatrixXx3<T> = apply_affine(in_affine, &in_corners);
     //println!("out_corners: {out_corners}");
 
     // ToDo make pretty
@@ -117,6 +134,8 @@ where
     (aff.into(), tra.into())
 }
 
+/// Resample in_im to world space with a given voxel size.
+///
 pub fn resample_to_output<T, U, S>(
     in_im: &Array<U, IxDyn>,
     in_affine: &Matrix4<T>,
@@ -145,6 +164,8 @@ where
     Ok((out_im, out_affine))
 }
 
+/// Resample in_im to mapped voxel space defined by out_affine and out_shape.
+///
 pub fn resample_from_to<T, U, S>(
     in_im: &Array<U, IxDyn>,
     in_affine: &Matrix4<T>,
@@ -174,8 +195,8 @@ where
     // the iterator yields row-major order, nalgebra uses column-major order
     // ToDo: this is slow. Possibly replace with Matrix3N::from_vec,
     //       however, this operation expects column-major order
-    let in_coords = Matrix3N::from_row_slice(&in_coords);
-    let in_coords: Matrix3N<T> = na::convert(in_coords);
+    let in_coords = MatrixXx3::from_row_slice(&in_coords);
+    let in_coords: MatrixXx3<T> = na::convert(in_coords);
 
     let out_coords = apply_affine(&compound_affine, &in_coords);
     //println!("{}", out_coords.rows(0, 10));

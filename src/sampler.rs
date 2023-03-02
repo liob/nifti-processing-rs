@@ -1,14 +1,18 @@
-use crate::Matrix3N;
-use nalgebra as na;
+//! This module implements the sampling functionality.
+//!
+use nalgebra::{clamp, MatrixXx3};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
 
+/// A set of strategies a sampler may employ if a point is out of sample.
 #[derive(Debug)]
 pub enum Mode {
     Constant,
     Nearest,
 }
 
+/// This trait has to be implented by all valid samplers.
+///
 pub trait Sampler<T, U>
 where
     T: Num + Copy,
@@ -17,11 +21,15 @@ where
     fn sample(
         &self,
         in_im: &Array<U, IxDyn>,
-        in_coords: &Matrix3N<T>,
+        in_coords: &MatrixXx3<T>,
         out_shape: &[u16],
     ) -> Array<U, IxDyn>;
 }
 
+/// A sampler employing a nearest neighbor strategy.
+///
+/// This sampler corresponds to `order=0` in nibabel.
+///
 pub struct NearestNeighbor<U>
 where
     U: Num + Copy,
@@ -50,12 +58,12 @@ where
     fn sample(
         &self,
         in_im: &Array<U, IxDyn>,
-        in_coords: &Matrix3N<T>,
+        in_coords: &MatrixXx3<T>,
         out_shape: &[u16],
     ) -> Array<U, IxDyn> {
         let in_coords: Vec<i32> = in_coords.iter().map(|x| x.as_()).collect();
         let mut v: Vec<U> = Vec::with_capacity(in_coords.len());
-        let in_coords: Matrix3N<i32> = Matrix3N::from_vec(in_coords);
+        let in_coords: MatrixXx3<i32> = MatrixXx3::from_vec(in_coords);
 
         let in_shape = in_im.shape();
 
@@ -77,9 +85,9 @@ where
             match self.mode {
                 Mode::Constant => (), // leave idxs as is
                 Mode::Nearest => {
-                    x = na::clamp(x, 0, cap_x);
-                    y = na::clamp(y, 0, cap_y);
-                    z = na::clamp(z, 0, cap_z);
+                    x = clamp(x, 0, cap_x);
+                    y = clamp(y, 0, cap_y);
+                    z = clamp(z, 0, cap_z);
                 }
                 _ => unimplemented!("Mode: {:?} is not implemented!", self.mode),
             }
