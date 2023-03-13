@@ -2,38 +2,31 @@
 //! This library is closely modeled after the NiBabel processing module, hence the name.
 
 use itertools::Itertools;
-use nalgebra as na;
 use nalgebra::{ClosedAdd, ClosedMul, Matrix3, Matrix4, MatrixXx3, RealField, Scalar, Vector3};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
-use simba::scalar::{SubsetOf, SupersetOf};
 use std::fmt::Display;
 
 pub mod sampler;
+pub use sampler::nearest_neighbor::NearestNeighbor;
+pub use sampler::traits::ReSample;
 
 /// Corners could be calculated, e.g. using itertools. As we only need to cover the 3D
 /// usecase, we simply do it "manually".
 #[rustfmt::skip] // do not mangle manual matrix format
-fn get_corners<U>(input_shape: &Vector3<u16>) -> MatrixXx3<U>
+fn get_corners(input_shape: &Vector3<usize>) -> MatrixXx3<usize>
 where
-    U: Num + Scalar + Copy,
-    u16: Into<U>,
 {
-    assert!(input_shape.len() == 3, "input shape has to be 3d!");
-
     let is = input_shape;
-    let zero = U::zero;
-    let one = U::one;
-
-    MatrixXx3::<U>::from_row_slice(&[
-        zero(),               zero(),               zero(),
-        zero(),               zero(),               is[2].into() - one(),
-        zero(),               is[1].into() - one(), zero(),
-        zero(),               is[1].into() - one(), is[2].into() - one(),
-        is[0].into() - one(), zero(),               zero(),
-        is[0].into() - one(), zero(),               is[2].into() - one(),
-        is[0].into() - one(), is[1].into() - one(), zero(),
-        is[0].into() - one(), is[1].into() - one(), is[2].into() - one(),
+    MatrixXx3::<usize>::from_row_slice(&[
+        0,         0,        0,
+        0,         0,        is[2] - 1,
+        0,         is[1] -1, 0,
+        0,         is[1] -1, is[2] - 1,
+        is[0] - 1, 0,        0,
+        is[0] - 1, 0,        is[2] - 1,
+        is[0] - 1, is[1] -1, 0,
+        is[0] - 1, is[1] -1, is[2] - 1,
     ])
 }
 
@@ -69,19 +62,20 @@ where
 /// (from the nibabel documentation)
 ///
 fn vox2out_vox<T>(
-    in_shape: &Vector3<u16>,
+    in_shape: &Vector3<usize>,
     in_affine: &Matrix4<T>,
     voxel_sizes: &Vector3<T>,
-) -> (Vector3<u16>, Matrix4<T>)
+) -> (Vector3<usize>, Matrix4<T>)
 where
-    T: Num + AsPrimitive<T> + SupersetOf<u16> + Scalar + RealField + Copy + Display,
-    u16: Into<T>,
+    T: Num + Scalar + RealField + AsPrimitive<usize> + Copy + Display,
+    usize: AsPrimitive<T>,
 {
-    let in_corners: MatrixXx3<T> = get_corners(in_shape);
-    //println!("in_corners: {in_corners}");
+    let in_corners: MatrixXx3<usize> = get_corners(in_shape);
+    // convert MatrixXx3<usize> -> MatrixXx3<T>
+    let in_corners: MatrixXx3<T> =
+        MatrixXx3::from_iterator(in_corners.nrows(), in_corners.iter().map(|x| x.as_()));
 
     let out_corners: MatrixXx3<T> = apply_affine(in_affine, &in_corners);
-    //println!("out_corners: {out_corners}");
 
     // ToDo make pretty
     let out_mn = out_corners
@@ -94,19 +88,16 @@ where
         .map(|x| x.max())
         .collect::<Vec<T>>();
     let out_mx = Vector3::from_vec(out_mx);
-    //println!("out_mn: {out_mn}   out_mx: {out_mx}");
 
-    let out_shape = (out_mx - out_mn)
+    let out_shape: Vector3<T> = (out_mx - out_mn)
         .component_div(voxel_sizes)
         .map(|x| x.ceil())
         .add_scalar(T::one());
-    let out_shape: Vector3<u16> = na::convert_unchecked(out_shape);
-    //println!("out_shape: {out_shape}");
+    let out_shape: Vector3<usize> = Vector3::from_iterator(out_shape.iter().map(|x| x.as_()));
 
     let out_aff = Matrix3::from_diagonal(voxel_sizes);
     let out_tra = out_mn;
     let out_affine = aff_tra_to_afftra(&out_aff, &out_tra);
-    //println!("out_aff: {out_aff}  \nout_tra: {out_tra}");
 
     (out_shape, out_affine)
 }
@@ -141,27 +132,26 @@ pub fn resample_to_output<T, U, S>(
     in_affine: &Matrix4<T>,
     voxel_sizes: &[f32; 3],
     sampler: S,
-) -> Result<(Array<U, IxDyn>, Matrix4<T>), &'static str>
+) -> Result<(Array<U, IxDyn>, Matrix4<T>), String>
 where
-    T: Scalar + RealField + nifti::DataElement + AsPrimitive<T> + AsPrimitive<usize> + Copy,
+    T: Scalar + RealField + nifti::DataElement + AsPrimitive<usize> + Copy,
     U: Num + Copy,
-    S: sampler::Sampler<T, U>,
-    f32: SubsetOf<T> + AsPrimitive<T>,
-    u16: SubsetOf<T> + Into<T>,
+    S: ReSample<T, U> + 'static,
+    f32: AsPrimitive<T>,
+    usize: AsPrimitive<T>,
 {
     // ToDo make pretty
     let in_shape = in_im.shape();
-    let in_shape = [in_shape[0], in_shape[1], in_shape[2]];
-    let in_shape = Vector3::from_row_slice(&in_shape.map(|x| x.as_()));
+    let in_shape = Vector3::from_row_slice(&[in_shape[0], in_shape[1], in_shape[2]]);
 
     let voxel_sizes: Vector3<T> = Vector3::from_row_slice(&voxel_sizes.map(|x| x.as_()));
 
     let (out_shape, out_affine) = vox2out_vox(&in_shape, in_affine, &voxel_sizes);
-    let out_shape: [u16; 3] = out_shape.into();
-    let out_im = resample_from_to(in_im, in_affine, &out_shape, &out_affine, sampler);
-    let out_im = out_im.unwrap();
-
-    Ok((out_im, out_affine))
+    let out_shape: [usize; 3] = out_shape.into();
+    match resample_from_to(in_im, in_affine, &out_shape, &out_affine, sampler) {
+        Ok(out_im) => Ok((out_im, out_affine)),
+        Err(err) => Err(err),
+    }
 }
 
 /// Resample in_im to mapped voxel space defined by out_affine and out_shape.
@@ -169,39 +159,40 @@ where
 pub fn resample_from_to<T, U, S>(
     in_im: &Array<U, IxDyn>,
     in_affine: &Matrix4<T>,
-    out_shape: &[u16],
+    out_shape: &[usize; 3],
     out_affine: &Matrix4<T>,
     sampler: S,
-) -> Result<Array<U, IxDyn>, &'static str>
+) -> Result<Array<U, IxDyn>, String>
 where
     T: Num + Scalar + RealField + nifti::DataElement + AsPrimitive<usize> + Copy,
     U: Num + Copy,
-    S: sampler::Sampler<T, U>,
+    S: ReSample<T, U> + 'static,
     f32: AsPrimitive<T>,
-    u16: SubsetOf<T> + Into<T>,
+    usize: AsPrimitive<T>,
 {
     let inv_in_affine = match in_affine.pseudo_inverse((0.00001f32).as_()) {
         Ok(val) => val,
-        Err(err) => return Err(err),
+        Err(err) => return Err(err.into()),
     };
 
     let compound_affine = inv_in_affine * out_affine;
-    //println!("compound_affine: {compound_affine}");
 
     // ToDo: generation of all coords is not very fast
     let in_coord_iter = out_shape.iter().map(|x| 0..*x).multi_cartesian_product();
-    let in_coords: Vec<u16> = in_coord_iter.flatten().collect_vec();
+    let in_coords: Vec<usize> = in_coord_iter.flatten().collect_vec();
 
     // the iterator yields row-major order, nalgebra uses column-major order
     // ToDo: this is slow. Possibly replace with Matrix3N::from_vec,
     //       however, this operation expects column-major order
     let in_coords = MatrixXx3::from_row_slice(&in_coords);
-    let in_coords: MatrixXx3<T> = na::convert(in_coords);
+    // convert MatrixXx3<usize> -> MatrixXx3<T>
+    let in_coords: MatrixXx3<T> =
+        MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.as_()));
 
     let out_coords = apply_affine(&compound_affine, &in_coords);
-    //println!("{}", out_coords.rows(0, 10));
 
-    let out_im = sampler.sample(in_im, &out_coords, out_shape);
-
-    Ok(out_im)
+    match sampler.sample(in_im, &out_coords, out_shape) {
+        Ok(out_im) => Ok(out_im),
+        Err(err) => Err(err),
+    }
 }

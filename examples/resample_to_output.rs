@@ -3,7 +3,7 @@ use kdam::tqdm;
 use nalgebra::Matrix4;
 use nifti::IntoNdArray;
 use nifti::{writer::WriterOptions, NiftiObject, ReaderOptions};
-use nifti_processing::{resample_to_output, sampler};
+use nifti_processing::{resample_to_output, NearestNeighbor};
 use std::path::Path;
 
 #[derive(Parser, Default, Debug)]
@@ -50,7 +50,7 @@ fn main() {
             }
         };
 
-        let nn = sampler::NearestNeighbor::default();
+        let nn = NearestNeighbor::default();
         let (out_im, out_affine) =
             match resample_to_output(&in_im, &in_affine, &[args.resolution; 3], nn) {
                 Ok(r) => r,
