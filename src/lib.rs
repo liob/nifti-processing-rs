@@ -134,7 +134,7 @@ pub fn resample_to_output<T, U, S>(
     sampler: S,
 ) -> Result<(Array<U, IxDyn>, Matrix4<T>), String>
 where
-    T: Scalar + RealField + nifti::DataElement + AsPrimitive<usize> + Copy,
+    T: Scalar + RealField + AsPrimitive<usize> + Copy,
     U: Num + Copy,
     S: ReSample<T, U> + 'static,
     f32: AsPrimitive<T>,
@@ -164,7 +164,7 @@ pub fn resample_from_to<T, U, S>(
     sampler: S,
 ) -> Result<Array<U, IxDyn>, String>
 where
-    T: Num + Scalar + RealField + nifti::DataElement + AsPrimitive<usize> + Copy,
+    T: Num + Scalar + RealField + AsPrimitive<usize> + Copy,
     U: Num + Copy,
     S: ReSample<T, U> + 'static,
     f32: AsPrimitive<T>,
