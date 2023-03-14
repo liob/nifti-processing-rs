@@ -17,8 +17,9 @@ itertools  = "0.10"
 num-traits = "0.2"
 
 [dev-dependencies]
-nifti      = { version = "0.15.0", features = ["nalgebra_affine"] }
+nifti  = { version = "0.15.0", features = ["nalgebra_affine"] }
 # tqdm
-kdam       = "0.3.0"
+kdam   = "0.3.0"
 # command line parameters
-clap       = { version = "4.0", features = ["derive"] }
+clap   = { version = "4.0", features = ["derive"] }
+approx = { version = "0.5", default-features = false }
