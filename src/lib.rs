@@ -106,7 +106,7 @@ fn aff_tra_to_afftra<T>(aff: &Matrix3<T>, tra: &Vector3<T>) -> Matrix4<T>
 where
     T: Num + Scalar + Copy,
 {
-    let r = aff.clone();
+    let r = *aff;
     let r = r.insert_column(3, T::zero());
     let mut r = r.insert_row(3, T::zero());
     r[(0, 3)] = tra.x;
@@ -125,6 +125,22 @@ where
     (aff.into(), tra.into())
 }
 
+fn sanitize_im_shape<U>(in_im: &Array<U, IxDyn>) -> Result<Array<U, IxDyn>, String>
+where
+    U: Num + Copy,
+{
+    let shape = in_im.shape();
+    match shape.len() {
+        2 => Ok(in_im
+            .to_shape((shape[0], shape[1], 1))
+            .unwrap()
+            .to_owned()
+            .into_dyn()),
+        3 => Ok(in_im.to_owned()),
+        _ => Err("invalid shape".into()),
+    }
+}
+
 /// Resample in_im to world space with a given voxel size.
 ///
 pub fn resample_to_output<T, U, S>(
@@ -141,6 +157,7 @@ where
     usize: AsPrimitive<T>,
 {
     // ToDo make pretty
+    let in_im = sanitize_im_shape(in_im)?;
     let in_shape = in_im.shape();
     let in_shape = Vector3::from_row_slice(&[in_shape[0], in_shape[1], in_shape[2]]);
 
@@ -148,7 +165,7 @@ where
 
     let (out_shape, out_affine) = vox2out_vox(&in_shape, in_affine, &voxel_sizes);
     let out_shape: [usize; 3] = out_shape.into();
-    match resample_from_to(in_im, in_affine, &out_shape, &out_affine, sampler) {
+    match resample_from_to(&in_im, in_affine, &out_shape, &out_affine, sampler) {
         Ok(out_im) => Ok((out_im, out_affine)),
         Err(err) => Err(err),
     }
@@ -189,12 +206,9 @@ where
     let in_coords: MatrixXx3<T> =
         MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.as_()));
 
-    let out_coords = apply_affine(&compound_affine, &in_coords);
+    let mut out_coords = apply_affine(&compound_affine, &in_coords);
 
-    match sampler.sample(in_im, &out_coords, out_shape) {
-        Ok(out_im) => Ok(out_im),
-        Err(err) => Err(err),
-    }
+    sampler.sample(in_im, &mut out_coords, out_shape)
 }
 
 #[cfg(test)]

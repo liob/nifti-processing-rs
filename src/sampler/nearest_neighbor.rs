@@ -1,6 +1,6 @@
 use super::common::SamplingMode;
 use super::traits::ReSample;
-use nalgebra::{clamp, MatrixXx3};
+use nalgebra::{MatrixXx3, RealField};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
 
@@ -30,7 +30,7 @@ where
 
 impl<T, U> ReSample<T, U> for NearestNeighbor<U>
 where
-    T: Num + AsPrimitive<usize> + PartialOrd + Copy,
+    T: Num + AsPrimitive<usize> + PartialOrd + RealField + Copy,
     U: Num + Copy,
     usize: AsPrimitive<T>,
 {
@@ -53,33 +53,17 @@ where
     fn sample(
         &self,
         in_im: &Array<U, IxDyn>,
-        in_coords: &MatrixXx3<T>,
+        in_coords: &mut MatrixXx3<T>,
         out_shape: &[usize],
     ) -> Result<Array<U, IxDyn>, String> {
         let mut values: Vec<U> = Vec::with_capacity(in_coords.len());
 
-        let in_shape = in_im.shape();
-
-        let (cap_x, cap_y, cap_z) = (
-            (in_shape[0] - 1).as_(),
-            (in_shape[1] - 1).as_(),
-            (in_shape[2] - 1).as_(),
-        );
+        let mut in_coords =
+            MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter_mut().map(|x| x.ceil()));
+        self.apply_sampling_mode(in_im, &mut in_coords);
 
         'outer: for in_coord in in_coords.row_iter() {
-            let (mut x, mut y, mut z) = (in_coord[(0, 0)], in_coord[(0, 1)], in_coord[(0, 2)]);
-
-            // handle different out of sample modes
-            #[allow(unreachable_patterns)]
-            match self.mode {
-                SamplingMode::Constant => (), // leave idxs as is
-                SamplingMode::Nearest => {
-                    x = clamp(x, T::zero(), cap_x);
-                    y = clamp(y, T::zero(), cap_y);
-                    z = clamp(z, T::zero(), cap_z);
-                }
-                _ => unimplemented!("Mode: {:?} is not implemented!", self.mode),
-            }
+            let (x, y, z) = (in_coord[(0, 0)], in_coord[(0, 1)], in_coord[(0, 2)]);
 
             for ax in [x, y, z] {
                 if ax < T::zero() {
@@ -95,14 +79,7 @@ where
             values.push(val);
         }
 
-        if let Ok(r) = Array::from_shape_vec(
-            [
-                out_shape[0] as usize,
-                out_shape[1] as usize,
-                out_shape[2] as usize,
-            ],
-            values,
-        ) {
+        if let Ok(r) = Array::from_shape_vec(out_shape, values) {
             Ok(r.into_dyn())
         } else {
             Err("number of elements is not compatible with out_shape shape".into())
