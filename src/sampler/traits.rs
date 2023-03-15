@@ -20,7 +20,7 @@ where
     fn sample(
         &self,
         in_im: &Array<U, IxDyn>,
-        in_coords: &MatrixXx3<T>,
+        in_coords: &mut MatrixXx3<T>,
         out_shape: &[usize],
     ) -> Result<Array<U, IxDyn>, String>;
 
