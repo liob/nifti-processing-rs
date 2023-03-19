@@ -4,12 +4,12 @@ use nalgebra::{MatrixXx3, RealField};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
 
-/// A sampler employing a nearest neighbor strategy.
+/// A sampler employing a trilinear interpolation strategy.
 ///
-/// This sampler corresponds to `order=0` in nibabel.
+/// This sampler corresponds to `order=1` in nibabel.
 ///
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct NearestNeighbor<U>
+pub struct TriLinear<U>
 where
     U: Num + Copy,
 {
@@ -17,7 +17,7 @@ where
     cval: U,
 }
 
-impl<U> Default for NearestNeighbor<U>
+impl<U> Default for TriLinear<U>
 where
     U: Num + Copy,
 {
@@ -29,7 +29,7 @@ where
     }
 }
 
-impl<T, U> ReSample<T, U> for NearestNeighbor<U>
+impl<T, U> ReSample<T, U> for TriLinear<U>
 where
     T: Num + AsPrimitive<usize> + RealField + PartialOrd + Copy,
     U: Num + Copy,
@@ -58,27 +58,17 @@ where
         out_shape: &[usize],
     ) -> Result<Array<U, IxDyn>, String> {
         let mut values: Vec<U> = Vec::with_capacity(in_coords.len());
+        self.apply_sampling_mode(in_im, in_coords);
 
-        let mut in_coords =
-            MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter_mut().map(|x| x.ceil()));
-        self.apply_sampling_mode(in_im, &mut in_coords);
+        let in_coords_0 =
+            MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.floor()));
+        let in_coords_1 =
+            MatrixXx3::from_iterator(in_coords_0.nrows(), in_coords_0.iter().map(|x| *x + T::one()));
 
-        'outer: for in_coord in in_coords.row_iter() {
-            let (x, y, z) = (in_coord[(0, 0)], in_coord[(0, 1)], in_coord[(0, 2)]);
-
-            for ax in [x, y, z] {
-                if ax < T::zero() {
-                    values.push(U::zero()); // ToDo cval
-                    continue 'outer;
-                }
-            }
-
-            let val = match in_im.get([x.as_(), y.as_(), z.as_()]) {
-                Some(val) => *val,
-                None => U::zero(), // ToDo cval
-            };
-            values.push(val);
+        for i in 0..in_coords.nrows() {
+            
         }
+
 
         if let Ok(r) = Array::from_shape_vec(out_shape, values) {
             Ok(r.into_dyn())

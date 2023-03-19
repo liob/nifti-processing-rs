@@ -9,6 +9,7 @@ use std::fmt::Display;
 
 pub mod sampler;
 pub use sampler::nearest_neighbor::NearestNeighbor;
+pub use sampler::trilinear::TriLinear;
 pub use sampler::traits::ReSample;
 
 /// Corners could be calculated, e.g. using itertools. As we only need to cover the 3D
@@ -147,12 +148,12 @@ pub fn resample_to_output<T, U, S>(
     in_im: &Array<U, IxDyn>,
     in_affine: &Matrix4<T>,
     voxel_sizes: &[f32; 3],
-    sampler: S,
+    sampler: &S,
 ) -> Result<(Array<U, IxDyn>, Matrix4<T>), String>
 where
     T: Scalar + RealField + AsPrimitive<usize> + Copy,
     U: Num + Copy,
-    S: ReSample<T, U> + 'static,
+    S: ReSample<T, U> + ?Sized + 'static,
     f32: AsPrimitive<T>,
     usize: AsPrimitive<T>,
 {
@@ -178,12 +179,12 @@ pub fn resample_from_to<T, U, S>(
     in_affine: &Matrix4<T>,
     out_shape: &[usize; 3],
     out_affine: &Matrix4<T>,
-    sampler: S,
+    sampler: &S,
 ) -> Result<Array<U, IxDyn>, String>
 where
     T: Num + Scalar + RealField + AsPrimitive<usize> + Copy,
     U: Num + Copy,
-    S: ReSample<T, U> + 'static,
+    S: ReSample<T, U> + ?Sized + 'static,
     f32: AsPrimitive<T>,
     usize: AsPrimitive<T>,
 {
