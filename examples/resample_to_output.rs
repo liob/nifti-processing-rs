@@ -3,7 +3,7 @@ use kdam::tqdm;
 use nalgebra::Matrix4;
 use nifti::IntoNdArray;
 use nifti::{writer::WriterOptions, NiftiObject, ReaderOptions};
-use nifti_processing::{resample_to_output, NearestNeighbor};
+use nifti_processing::{resample_to_output, ReSample, NearestNeighbor, TriLinear};
 use std::path::Path;
 
 #[derive(Parser, Default, Debug)]
@@ -17,6 +17,10 @@ struct Args {
     #[arg(short, default_value_t = 1.5f32)]
     resolution: f32,
 
+    /// Order
+    #[arg(short, default_value_t = 1i8)]
+    order: i8,
+
     /// Output directory
     #[arg(short, default_value_t = String::from("./"))]
     output_directory: String,
@@ -27,6 +31,9 @@ fn main() {
     let args = Args::parse();
 
     let output_dir = Path::new(&args.output_directory);
+
+    let sampler_nn = NearestNeighbor::default();
+    let sampler_tri = TriLinear::default();
 
     for filename in tqdm!(args.inputs.iter()) {
         let path = Path::new(filename);
@@ -50,9 +57,14 @@ fn main() {
             }
         };
 
-        let nn = NearestNeighbor::default();
+        let sampler: &dyn ReSample<f32,f32> = match args.order {
+            0 => &sampler_nn,
+            1 => &sampler_tri,
+            _ => panic!("invalid order argument"),
+        };
+
         let (out_im, out_affine) =
-            match resample_to_output(&in_im, &in_affine, &[args.resolution; 3], nn) {
+            match resample_to_output(&in_im, &in_affine, &[args.resolution; 3], sampler) {
                 Ok(r) => r,
                 Err(_err) => {
                     println!("failed to process: {filename}");
