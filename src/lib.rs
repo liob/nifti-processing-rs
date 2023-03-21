@@ -8,6 +8,7 @@ use num_traits::{AsPrimitive, Num};
 use std::fmt::Display;
 
 pub mod sampler;
+pub use sampler::common::SamplingMode;
 pub use sampler::nearest_neighbor::NearestNeighbor;
 pub use sampler::traits::ReSample;
 pub use sampler::trilinear::TriLinear;
