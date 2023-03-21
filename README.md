@@ -1,15 +1,14 @@
 # NIFTI-Processing-rs
-This library is an extension of the [NIFTI-rs] library, adding resampling support. This library is closely modeled after the [NiBabel] [processing module][NiBabel-processing], hence the name.
+This library is designed as an extension of the [NIFTI-rs] library, adding 3D resampling support. This library is closely modeled after the [NiBabel] [processing module][NiBabel-processing], hence the name.
 
 
 ## Features
-The `resample_to_output` and `resample_from_to` functions are implemented.
+The `resample_to_output` and `resample_from_to` functions with nearest neighbor and trilinear resampling are implemented.
 
 
 ## Limitations
-  - Only nearest neighbor interpolation is supported. Trilinear interpolation will follow.
   - Minimal error checking; Will be extended.
-  - No unit tests.
+  - Minimal unit tests; Will be extended.
   - Please also consult the issue tracker.
 
 

@@ -8,6 +8,7 @@ use num_traits::{AsPrimitive, Num};
 ///
 /// This sampler corresponds to `order=0` in nibabel.
 ///
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NearestNeighbor<U>
 where
     U: Num + Copy,
@@ -30,8 +31,8 @@ where
 
 impl<T, U> ReSample<T, U> for NearestNeighbor<U>
 where
-    T: Num + AsPrimitive<usize> + PartialOrd + RealField + Copy,
-    U: Num + Copy,
+    T: Num + AsPrimitive<usize> + AsPrimitive<U> + RealField + PartialOrd + Copy,
+    U: Num + Copy + 'static,
     usize: AsPrimitive<T>,
 {
     fn set_sampling_mode(&mut self, mode: SamplingMode) {
@@ -62,21 +63,9 @@ where
             MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter_mut().map(|x| x.ceil()));
         self.apply_sampling_mode(in_im, &mut in_coords);
 
-        'outer: for in_coord in in_coords.row_iter() {
+        for in_coord in in_coords.row_iter() {
             let (x, y, z) = (in_coord[(0, 0)], in_coord[(0, 1)], in_coord[(0, 2)]);
-
-            for ax in [x, y, z] {
-                if ax < T::zero() {
-                    values.push(U::zero()); // ToDo cval
-                    continue 'outer;
-                }
-            }
-
-            let val = match in_im.get([x.as_(), y.as_(), z.as_()]) {
-                Some(val) => *val,
-                None => U::zero(), // ToDo cval
-            };
-            values.push(val);
+            values.push(self.get_val(in_im, x, y, z));
         }
 
         if let Ok(r) = Array::from_shape_vec(out_shape, values) {

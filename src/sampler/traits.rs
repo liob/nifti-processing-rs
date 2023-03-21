@@ -7,8 +7,8 @@ use num_traits::{AsPrimitive, Num};
 ///
 pub trait ReSample<T, U>
 where
-    T: Num + AsPrimitive<usize> + PartialOrd + Copy,
-    U: Num + Copy,
+    T: Num + AsPrimitive<usize> + AsPrimitive<U> + PartialOrd + Copy,
+    U: Num + Copy + 'static,
     usize: AsPrimitive<T>,
 {
     fn set_sampling_mode(&mut self, mode: SamplingMode);
@@ -33,7 +33,6 @@ where
             (in_shape[2] - 1).as_(),
         ];
 
-        #[allow(unreachable_patterns)]
         match self.get_sampling_mode() {
             SamplingMode::Constant => (), // leave idxs as is
             SamplingMode::Nearest => {
@@ -42,7 +41,19 @@ where
                         .for_each(|x| x.clone_from(&clamp(*x, T::zero(), caps[i])))
                 }
             }
-            _ => unimplemented!("Mode: {:?} is not implemented!", self.get_sampling_mode()),
+        }
+    }
+
+    fn get_val(&self, im: &Array<U, IxDyn>, x: T, y: T, z: T) -> U {
+        for ax in [x, y, z] {
+            if ax < T::zero() {
+                return self.get_cval();
+            }
+        }
+
+        match im.get([x.as_(), y.as_(), z.as_()]) {
+            Some(val) => *val,
+            None => self.get_cval(),
         }
     }
 }
