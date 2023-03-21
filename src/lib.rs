@@ -9,8 +9,8 @@ use std::fmt::Display;
 
 pub mod sampler;
 pub use sampler::nearest_neighbor::NearestNeighbor;
-pub use sampler::trilinear::TriLinear;
 pub use sampler::traits::ReSample;
+pub use sampler::trilinear::TriLinear;
 
 /// Corners could be calculated, e.g. using itertools. As we only need to cover the 3D
 /// usecase, we simply do it "manually".

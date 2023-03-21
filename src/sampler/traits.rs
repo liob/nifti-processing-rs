@@ -44,8 +44,7 @@ where
         }
     }
 
-    fn get_val(&self, im: &Array<U, IxDyn>, x: T, y: T, z: T) -> U
-    {
+    fn get_val(&self, im: &Array<U, IxDyn>, x: T, y: T, z: T) -> U {
         for ax in [x, y, z] {
             if ax < T::zero() {
                 return self.get_cval();

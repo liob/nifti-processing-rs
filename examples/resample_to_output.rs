@@ -3,7 +3,7 @@ use kdam::tqdm;
 use nalgebra::Matrix4;
 use nifti::IntoNdArray;
 use nifti::{writer::WriterOptions, NiftiObject, ReaderOptions};
-use nifti_processing::{resample_to_output, ReSample, NearestNeighbor, TriLinear};
+use nifti_processing::{resample_to_output, NearestNeighbor, ReSample, TriLinear};
 use std::path::Path;
 
 #[derive(Parser, Default, Debug)]
@@ -57,7 +57,7 @@ fn main() {
             }
         };
 
-        let sampler: &dyn ReSample<f32,f32> = match args.order {
+        let sampler: &dyn ReSample<f32, f32> = match args.order {
             0 => &sampler_nn,
             1 => &sampler_tri,
             _ => panic!("invalid order argument"),
