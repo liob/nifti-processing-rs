@@ -189,9 +189,9 @@ where
     f32: AsPrimitive<T>,
     usize: AsPrimitive<T>,
 {
-    let inv_in_affine = match in_affine.pseudo_inverse((0.00001f32).as_()) {
-        Ok(val) => val,
-        Err(err) => return Err(err.into()),
+    let inv_in_affine = match in_affine.try_inverse() {
+        Some(val) => val,
+        None => return Err("no valid matrix inverse found for in_affine".into()),
     };
 
     let compound_affine = inv_in_affine * out_affine;

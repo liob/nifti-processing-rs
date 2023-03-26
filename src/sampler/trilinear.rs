@@ -90,7 +90,6 @@ where
             let Ig = self.get_val(in_im, x1, y1, z0);
             let Ih = self.get_val(in_im, x1, y1, z1);
 
-            // ToDo
             let wa: U = ((x1 - x) * (y1 - y) * (z1 - z)).as_();
             let wb: U = ((x1 - x) * (y1 - y) * (z - z0)).as_();
             let wc: U = ((x1 - x) * (y - y0) * (z1 - z)).as_();
