@@ -2,12 +2,12 @@
 name = "nifti_processing"
 version = "0.1.0"
 edition = "2021"
-description = "nibabel like processing functions for Nifti-rs"
+description = "nibabel like 3d resampling functions for Nifti-rs"
 readme = "README.md"
 repository = "https://github.com/liob/NIFTI-Processing-rs"
 authors = ["Hinrich Winther <hbwinther@gmail.com>"]
 license = "MIT OR Apache-2.0"
-keywords = ["nifti", "imaging", "standard", "nibabel"]
+keywords = ["nifti", "imaging", "3d", "resampling", "nibabel"]
 
 
 [dependencies]

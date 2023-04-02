@@ -17,6 +17,8 @@ The `nalgebra_affine` and `ndarray_volumes` features of NIFTI-rs are required.
 
 
 ## Example
+Load a Nifti image file with [NIFTI-rs] and resample the volume to a grid spacing of 1 mm:
+
 ```rust
 use nifti::{NiftiObject, ReaderOptions, NiftiVolume};
 use use nifti_processing::{resample_to_output, sampler};
