@@ -1,6 +1,6 @@
 [package]
 name = "nifti_processing"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "nibabel like 3d resampling functions for Nifti-rs"
 readme = "README.md"
