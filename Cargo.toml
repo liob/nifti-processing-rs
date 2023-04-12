@@ -11,10 +11,10 @@ keywords = ["nifti", "imaging", "3d", "resampling", "nibabel"]
 
 
 [dependencies]
-nalgebra   = "0.31"
-ndarray    = "0.15"
+nalgebra   = { version = "0.31", default-features = false }
+ndarray    = { version = "0.15", default-features = false }
 itertools  = "0.10"
-num-traits = "0.2"
+num-traits = { version = "0.2",  default-features = false }
 
 [dev-dependencies]
 nifti  = { version = "0.15.0", features = ["nalgebra_affine"] }
