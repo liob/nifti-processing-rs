@@ -32,7 +32,7 @@ where
 impl<T, U> ReSample<T, U> for TriLinear<U>
 where
     T: Num + AsPrimitive<usize> + AsPrimitive<U> + RealField + PartialOrd + Copy,
-    U: Num + AsPrimitive<T> + Copy + 'static,
+    U: Num + AsPrimitive<T> + Copy,
     usize: AsPrimitive<T>,
 {
     fn set_sampling_mode(&mut self, mode: SamplingMode) {

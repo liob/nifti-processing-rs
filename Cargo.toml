@@ -11,7 +11,7 @@ keywords = ["nifti", "imaging", "3d", "resampling", "nibabel"]
 
 
 [dependencies]
-nalgebra   = { version = "0.31", default-features = false }
+nalgebra   = { version = "0.31", default-features = false, features = ["std"] }
 ndarray    = { version = "0.15", default-features = false }
 itertools  = "0.10"
 num-traits = { version = "0.2",  default-features = false }
@@ -23,3 +23,8 @@ kdam   = "0.3.0"
 # command line parameters
 clap   = { version = "4.0", features = ["derive"] }
 approx = { version = "0.5", default-features = false }
+criterion = "0.5"
+
+[[bench]]
+name = "speed_benchmark"
+harness = false
