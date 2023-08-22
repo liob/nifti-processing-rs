@@ -61,15 +61,36 @@ where
         let mut values: Vec<U> = Vec::with_capacity(in_coords.len());
         self.apply_sampling_mode(in_im, in_coords);
 
+        let in_shape = in_im.shape();
+        let t_zero   = T::zero();
+        let t_one    = T::one();
+        let x_upper  = T::from_usize(in_shape[0]).expect("failed to determine upper X");
+        let y_upper  = T::from_usize(in_shape[1]).expect("failed to determine upper Y");
+        let z_upper  = T::from_usize(in_shape[2]).expect("failed to determine upper Z");
+
         let in_coords_0 =
             MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.floor()));
         let in_coords_1 = MatrixXx3::from_iterator(
             in_coords_0.nrows(),
-            in_coords_0.iter().map(|x| *x + T::one()),
+            in_coords_0.iter().map(|x| *x + t_one),
         );
+
+        let in_coords_0_u: MatrixXx3<usize> = MatrixXx3::from_iterator(in_coords_0.nrows(), in_coords_0.iter().map(|x| x.as_()));
+        let in_coords_1_u: MatrixXx3<usize> = MatrixXx3::from_iterator(in_coords_1.nrows(), in_coords_1.iter().map(|x| x.as_()));
 
         for i in 0..in_coords.nrows() {
             let (x, y, z) = (in_coords[(i, 0)], in_coords[(i, 1)], in_coords[(i, 2)]);
+
+            // check if index is out of bounds
+            if  // check if any of the coordinates are out of lower bounds
+                (x < t_zero)  | (y < t_zero)  | (z < t_zero) |
+                // check if any of the coordinates are out of upper bounds
+                (x > x_upper) | (y > y_upper) | (z > z_upper)
+            {
+                values.push(self.get_cval());
+                continue;
+            };
+
             let (x0, y0, z0) = (
                 in_coords_0[(i, 0)],
                 in_coords_0[(i, 1)],
@@ -81,14 +102,25 @@ where
                 in_coords_1[(i, 2)],
             );
 
-            let Ia = self.get_val(in_im, x0, y0, z0);
-            let Ib = self.get_val(in_im, x0, y0, z1);
-            let Ic = self.get_val(in_im, x0, y1, z0);
-            let Id = self.get_val(in_im, x0, y1, z1);
-            let Ie = self.get_val(in_im, x1, y0, z0);
-            let If = self.get_val(in_im, x1, y0, z1);
-            let Ig = self.get_val(in_im, x1, y1, z0);
-            let Ih = self.get_val(in_im, x1, y1, z1);
+            let (x0_u, y0_u, z0_u) = (
+                in_coords_0_u[(i, 0)],
+                in_coords_0_u[(i, 1)],
+                in_coords_0_u[(i, 2)],
+            );
+            let (x1_u, y1_u, z1_u) = (
+                in_coords_1_u[(i, 0)],
+                in_coords_1_u[(i, 1)],
+                in_coords_1_u[(i, 2)],
+            );
+
+            let Ia = self.get_val(in_im, x0_u, y0_u, z0_u);
+            let Ib = self.get_val(in_im, x0_u, y0_u, z1_u);
+            let Ic = self.get_val(in_im, x0_u, y1_u, z0_u);
+            let Id = self.get_val(in_im, x0_u, y1_u, z1_u);
+            let Ie = self.get_val(in_im, x1_u, y0_u, z0_u);
+            let If = self.get_val(in_im, x1_u, y0_u, z1_u);
+            let Ig = self.get_val(in_im, x1_u, y1_u, z0_u);
+            let Ih = self.get_val(in_im, x1_u, y1_u, z1_u);
 
             let wa: U = ((x1 - x) * (y1 - y) * (z1 - z)).as_();
             let wb: U = ((x1 - x) * (y1 - y) * (z - z0)).as_();

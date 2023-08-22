@@ -59,13 +59,32 @@ where
     ) -> Result<Array<U, IxDyn>, String> {
         let mut values: Vec<U> = Vec::with_capacity(in_coords.len());
 
-        let mut in_coords =
+        self.apply_sampling_mode(in_im, in_coords);
+        let in_coords =
             MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter_mut().map(|x| x.ceil()));
-        self.apply_sampling_mode(in_im, &mut in_coords);
+        let in_coords_u: MatrixXx3<usize> = MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.as_()));
 
-        for in_coord in in_coords.row_iter() {
-            let (x, y, z) = (in_coord[(0, 0)], in_coord[(0, 1)], in_coord[(0, 2)]);
-            values.push(self.get_val(in_im, x, y, z));
+        let in_shape = in_im.shape();
+        let t_zero  = T::zero();
+        let x_upper = T::from_usize(in_shape[0]).expect("failed to determine upper X");
+        let y_upper = T::from_usize(in_shape[1]).expect("failed to determine upper Y");
+        let z_upper = T::from_usize(in_shape[2]).expect("failed to determine upper Z");
+
+        for i in 0..in_coords.nrows() {
+            let (x, y, z) = (in_coords[(i, 0)], in_coords[(i, 1)], in_coords[(i, 2)]);
+            let (x_u, y_u, z_u) = (in_coords_u[(i, 0)], in_coords_u[(i, 1)], in_coords_u[(i, 2)]);
+
+            // check if index is out of bounds
+            if  // check if any of the coordinates are out of lower bounds
+                (x < t_zero)  | (y < t_zero)  | (z < t_zero) |
+                // check if any of the coordinates are out of upper bounds
+                (x > x_upper) | (y > y_upper) | (z > z_upper)
+            {
+                values.push(self.get_cval());
+                continue;
+            };
+
+            values.push(self.get_val(in_im, x_u, y_u, z_u));
         }
 
         if let Ok(r) = Array::from_shape_vec(out_shape, values) {

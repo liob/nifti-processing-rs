@@ -44,14 +44,8 @@ where
         }
     }
 
-    fn get_val(&self, im: &Array<U, IxDyn>, x: T, y: T, z: T) -> U {
-        for ax in [x, y, z] {
-            if ax < T::zero() {
-                return self.get_cval();
-            }
-        }
-
-        match im.get([x.as_(), y.as_(), z.as_()]) {
+    fn get_val(&self, im: &Array<U, IxDyn>, x: usize, y: usize, z: usize) -> U {
+        match im.get([x, y, z]) {
             Some(val) => *val,
             None => self.get_cval(),
         }
