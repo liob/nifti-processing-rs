@@ -3,6 +3,7 @@ use super::traits::ReSample;
 use nalgebra::{MatrixXx3, RealField};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
+use rayon::prelude::*;
 
 /// A sampler employing a nearest neighbor strategy.
 ///
@@ -32,7 +33,7 @@ where
 impl<T, U> ReSample<T, U> for NearestNeighbor<U>
 where
     T: Num + AsPrimitive<usize> + AsPrimitive<U> + RealField + PartialOrd + Copy,
-    U: Num + Copy + 'static,
+    U: Num + AsPrimitive<T> + Copy + Send + Sync,
     usize: AsPrimitive<T>,
 {
     fn set_sampling_mode(&mut self, mode: SamplingMode) {
@@ -57,8 +58,6 @@ where
         in_coords: &mut MatrixXx3<T>,
         out_shape: &[usize],
     ) -> Result<Array<U, IxDyn>, String> {
-        let mut values: Vec<U> = Vec::with_capacity(in_coords.len());
-
         self.apply_sampling_mode(in_im, in_coords);
         let in_coords =
             MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter_mut().map(|x| x.ceil()));
@@ -70,7 +69,7 @@ where
         let y_upper = T::from_usize(in_shape[1]).expect("failed to determine upper Y");
         let z_upper = T::from_usize(in_shape[2]).expect("failed to determine upper Z");
 
-        for i in 0..in_coords.nrows() {
+        let values: Vec<U> = (0..in_coords.nrows()).into_par_iter().map(|i| {
             let (x, y, z) = (in_coords[(i, 0)], in_coords[(i, 1)], in_coords[(i, 2)]);
             let (x_u, y_u, z_u) = (in_coords_u[(i, 0)], in_coords_u[(i, 1)], in_coords_u[(i, 2)]);
 
@@ -80,12 +79,11 @@ where
                 // check if any of the coordinates are out of upper bounds
                 (x > x_upper) | (y > y_upper) | (z > z_upper)
             {
-                values.push(self.get_cval());
-                continue;
+                return self.get_cval();
             };
 
-            values.push(self.get_val(in_im, x_u, y_u, z_u));
-        }
+            self.get_val(in_im, x_u, y_u, z_u)
+        }).collect();
 
         if let Ok(r) = Array::from_shape_vec(out_shape, values) {
             Ok(r.into_dyn())

@@ -3,6 +3,7 @@ use super::traits::ReSample;
 use nalgebra::{MatrixXx3, RealField};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num};
+use rayon::prelude::*;
 
 /// A sampler employing a trilinear interpolation strategy.
 ///
@@ -32,7 +33,7 @@ where
 impl<T, U> ReSample<T, U> for TriLinear<U>
 where
     T: Num + AsPrimitive<usize> + AsPrimitive<U> + RealField + PartialOrd + Copy,
-    U: Num + AsPrimitive<T> + Copy,
+    U: Num + AsPrimitive<T> + Copy + Send + Sync,
     usize: AsPrimitive<T>,
 {
     fn set_sampling_mode(&mut self, mode: SamplingMode) {
@@ -58,7 +59,6 @@ where
         in_coords: &mut MatrixXx3<T>,
         out_shape: &[usize],
     ) -> Result<Array<U, IxDyn>, String> {
-        let mut values: Vec<U> = Vec::with_capacity(in_coords.len());
         self.apply_sampling_mode(in_im, in_coords);
 
         let in_shape = in_im.shape();
@@ -68,17 +68,10 @@ where
         let y_upper  = T::from_usize(in_shape[1]).expect("failed to determine upper Y");
         let z_upper  = T::from_usize(in_shape[2]).expect("failed to determine upper Z");
 
-        let in_coords_0 =
-            MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.floor()));
-        let in_coords_1 = MatrixXx3::from_iterator(
-            in_coords_0.nrows(),
-            in_coords_0.iter().map(|x| *x + t_one),
-        );
+        let in_coords_0 = MatrixXx3::from_vec(in_coords.as_slice().into_par_iter().map(|x| x.floor()).collect());
+        let in_coords_1 = MatrixXx3::from_vec(in_coords_0.as_slice().into_par_iter().map(|x| *x + t_one).collect());
 
-        let in_coords_0_u: MatrixXx3<usize> = MatrixXx3::from_iterator(in_coords_0.nrows(), in_coords_0.iter().map(|x| x.as_()));
-        let in_coords_1_u: MatrixXx3<usize> = MatrixXx3::from_iterator(in_coords_1.nrows(), in_coords_1.iter().map(|x| x.as_()));
-
-        for i in 0..in_coords.nrows() {
+        let values: Vec<U> = (0..in_coords.nrows()).into_par_iter().map(|i| {
             let (x, y, z) = (in_coords[(i, 0)], in_coords[(i, 1)], in_coords[(i, 2)]);
 
             // check if index is out of bounds
@@ -87,8 +80,7 @@ where
                 // check if any of the coordinates are out of upper bounds
                 (x > x_upper) | (y > y_upper) | (z > z_upper)
             {
-                values.push(self.get_cval());
-                continue;
+                return self.get_cval();
             };
 
             let (x0, y0, z0) = (
@@ -102,15 +94,21 @@ where
                 in_coords_1[(i, 2)],
             );
 
+            // simd does not play nice with num_traits
+            // we convert to usize here instead of in
+            // advance to leaverage multiprocessing.
+            // if implemented with simd there would be
+            // a total expected speedup of 5 % for
+            // overall resampling
             let (x0_u, y0_u, z0_u) = (
-                in_coords_0_u[(i, 0)],
-                in_coords_0_u[(i, 1)],
-                in_coords_0_u[(i, 2)],
+                in_coords_0[(i, 0)].as_(),
+                in_coords_0[(i, 1)].as_(),
+                in_coords_0[(i, 2)].as_(),
             );
             let (x1_u, y1_u, z1_u) = (
-                in_coords_1_u[(i, 0)],
-                in_coords_1_u[(i, 1)],
-                in_coords_1_u[(i, 2)],
+                in_coords_1[(i, 0)].as_(),
+                in_coords_1[(i, 1)].as_(),
+                in_coords_1[(i, 2)].as_(),
             );
 
             let Ia = self.get_val(in_im, x0_u, y0_u, z0_u);
@@ -131,10 +129,9 @@ where
             let wg: U = ((x - x0) * (y - y0) * (z1 - z)).as_();
             let wh: U = ((x - x0) * (y - y0) * (z - z0)).as_();
 
-            values.push(
-                wa * Ia + wb * Ib + wc * Ic + wd * Id + we * Ie + wf * If + wg * Ig + wh * Ih,
-            );
-        }
+            wa * Ia + wb * Ib + wc * Ic + wd * Id + we * Ie + wf * If + wg * Ig + wh * Ih
+        })
+        .collect();
 
         if let Ok(r) = Array::from_shape_vec(out_shape, values) {
             Ok(r.into_dyn())
