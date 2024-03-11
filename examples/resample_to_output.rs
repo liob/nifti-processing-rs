@@ -18,7 +18,7 @@ struct Args {
     resolution: f32,
 
     /// Order
-    #[arg(short='n', default_value_t = 1i8)]
+    #[arg(short = 'n', default_value_t = 1i8)]
     order: i8,
 
     /// Output directory

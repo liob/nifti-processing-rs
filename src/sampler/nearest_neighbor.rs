@@ -61,29 +61,38 @@ where
         self.apply_sampling_mode(in_im, in_coords);
         let in_coords =
             MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter_mut().map(|x| x.ceil()));
-        let in_coords_u: MatrixXx3<usize> = MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.as_()));
+        let in_coords_u: MatrixXx3<usize> =
+            MatrixXx3::from_iterator(in_coords.nrows(), in_coords.iter().map(|x| x.as_()));
 
         let in_shape = in_im.shape();
-        let t_zero  = T::zero();
+        let t_zero = T::zero();
         let x_upper = T::from_usize(in_shape[0]).expect("failed to determine upper X");
         let y_upper = T::from_usize(in_shape[1]).expect("failed to determine upper Y");
         let z_upper = T::from_usize(in_shape[2]).expect("failed to determine upper Z");
 
-        let values: Vec<U> = (0..in_coords.nrows()).into_par_iter().map(|i| {
-            let (x, y, z) = (in_coords[(i, 0)], in_coords[(i, 1)], in_coords[(i, 2)]);
-            let (x_u, y_u, z_u) = (in_coords_u[(i, 0)], in_coords_u[(i, 1)], in_coords_u[(i, 2)]);
+        let values: Vec<U> = (0..in_coords.nrows())
+            .into_par_iter()
+            .map(|i| {
+                let (x, y, z) = (in_coords[(i, 0)], in_coords[(i, 1)], in_coords[(i, 2)]);
+                let (x_u, y_u, z_u) = (
+                    in_coords_u[(i, 0)],
+                    in_coords_u[(i, 1)],
+                    in_coords_u[(i, 2)],
+                );
 
-            // check if index is out of bounds
-            if  // check if any of the coordinates are out of lower bounds
+                // check if index is out of bounds
+                if
+                // check if any of the coordinates are out of lower bounds
                 (x < t_zero)  | (y < t_zero)  | (z < t_zero) |
                 // check if any of the coordinates are out of upper bounds
                 (x > x_upper) | (y > y_upper) | (z > z_upper)
-            {
-                return self.get_cval();
-            };
+                {
+                    return self.get_cval();
+                };
 
-            self.get_val(in_im, x_u, y_u, z_u)
-        }).collect();
+                self.get_val(in_im, x_u, y_u, z_u)
+            })
+            .collect();
 
         if let Ok(r) = Array::from_shape_vec(out_shape, values) {
             Ok(r.into_dyn())
