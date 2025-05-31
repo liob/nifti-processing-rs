@@ -122,8 +122,8 @@ fn afftra_to_aff_tra<T>(affine: &Matrix4<T>) -> (Matrix3<T>, Vector3<T>)
 where
     T: Num + Scalar + Copy,
 {
-    let aff = affine.fixed_slice::<3, 3>(0, 0);
-    let tra = affine.fixed_slice::<3, 1>(0, 3);
+    let aff = affine.fixed_view::<3, 3>(0, 0);
+    let tra = affine.fixed_view::<3, 1>(0, 3);
     (aff.into(), tra.into())
 }
 

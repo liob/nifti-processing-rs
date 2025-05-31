@@ -1,6 +1,6 @@
 [package]
 name = "nifti_processing"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "nibabel like 3d resampling functions for Nifti-rs"
 readme = "README.md"
@@ -11,8 +11,8 @@ keywords = ["nifti", "imaging", "3d", "resampling", "nibabel"]
 
 
 [dependencies]
-nalgebra   = { version = "0.31", default-features = false, features = ["std"] }
-ndarray    = { version = "0.15", default-features = false }
+nalgebra   = { version = "0.32", default-features = false, features = ["std"] }
+ndarray    = { version = "0.16", default-features = false }
 itertools  = "0.10"
 num-traits = { version = "0.2",  default-features = false }
 rayon      = { version = "1.6" }
